@@ -1,5 +1,58 @@
 # Obraz a displej
 
+## Rozlišení: klávesa R
+
+Obě hry umí dvě rozlišení a přepínají se **klávesou R přímo ve hře**:
+
+| režim | rozlišení | jak je nastaveno |
+|---|---|---|
+| low-res | **320×200** | VGA mode 13h (`INT 10h, AX=0013h`) |
+| hi-res | **640×480** | VBE mód `0x101` přes VESA |
+
+Magic Carpet 2 to má v `README.TXT` doslova:
+
+```
+R                       Change screen resolution
+```
+
+Magic Carpet 1 klávesu R podporuje taky, ale mlčí o ní — není ani v herních
+textech, ani ve vestavěné nápovědě. Je jen v tištěném manuálu:
+
+```
+Toggle between normal and hi-res mode: Press R (16 meg only)
+```
+
+**V menu ani v Options panelu volba rozlišení není.** Options panel (klávesa
+**D**) obsahuje jen `Alter screen size`, což je něco jiného — mění velikost
+herního výřezu, ne rozlišení. Na to jsou klávesy `[` a `]`.
+
+### Hi-res vyžaduje VESA
+
+Dobové omezení: hi-res chtěl 16 MB RAM a VESA kompatibilní SVGA kartu.
+Z README MC2:
+
+> Hi-Res mode requires 16Mb RAM, VESA compatible driver, SVGA video card
+> & monitor.
+
+V DOSBoxu je to splněné — `machine = svga_s3` v configu emuluje S3 Trio
+s VESA BIOSem a `memsize = 16` dá 16 MB.
+
+### Dopad na výkon
+
+Hi-res má **4,8× víc pixelů** (307 200 proti 64 000) a jede přes VESA
+bank-switching místo lineárního mode 13h. Dokumentace her o náročnosti nic
+neříká, ale prakticky to znamená, že po přepnutí na hi-res je potřeba víc
+cyklů CPU — viz [ladeni-vykonu.md](ladeni-vykonu.md).
+
+Jediná dobová rada k výkonu je ve vestavěné nápovědě jedničky a týká se
+detailů, ne rozlišení:
+
+```
+If you are experiencing slowness, try Pressing F5,F6,F7.
+```
+
+(odrazy / obloha / stíny)
+
 ## Černé pruhy ze všech čtyř stran
 
 Příznak: ve fullscreenu je obraz obklopený černou nahoře, dole i po stranách.
@@ -56,7 +109,7 @@ Pokud se objeví nerovnoměrné scanline nebo moaré, řešením je vypnout shad
 ```
 
 Dostupné shadery jsou v `/usr/share/dosbox-staging/glshaders/`
-(`crt/`, `interpolation/`, `scaler/`). `crt-auto` vybírá variantu podle
+(`crt/`, `interpolation/`, `scaler/`, `misc/`). `crt-auto` vybírá variantu podle
 rozlišení — na 4K sáhne po `crt/vga-4k.glsl`.
 
 ## Frame pacing na 60Hz panelu
@@ -65,5 +118,11 @@ Klasické VGA režimy běží na **70 Hz**. Na 60Hz displeji z toho vzniká
 nerovnoměrné frame pacing, které vypadá jako sekání i při plné rychlosti hry.
 
 Zvyšování cyklů to **nespraví** — je to problém zobrazení, ne emulace.
-`vsync = auto` to většinou zvládne; když ne, zkus `vsync = off` (za cenu
-možného tearingu).
+
+Klíč `vsync` v configech tohoto repozitáře **není nastavený**, takže platí
+výchozí `auto`, které si s tím většinou poradí. Když ne, přidej si do
+`dosbox-staging.conf` do sekce `[sdl]`:
+
+```ini
+vsync = off     # za cenu možného tearingu
+```

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Launcher pro Magic Carpet Plus a Magic Carpet 2: The Netherworlds (GOG, DOS)
-# Obe hry jsou MS-DOS -> bezi v DOSBoxu, ne ve Wine/Protonu.
+# Obe hry jsou pro MS-DOS, takze je spousti DOSBox.
 #
 # Pouziti:  ./play.sh [volby] [cil]
 # Bez cile se zobrazi menu.
@@ -141,14 +141,15 @@ Cile:
 Volby:
   -w, --windowed   spustit v okne misto fullscreenu
   -c, --cycles N   docasne prebije rychlost CPU: cislo nebo 'max'
-                   Vychozi: Magic Carpet 1 = 25000 (~486DX2-66, rychleji bezi
-                   hra prilis rychle), Magic Carpet 2 = max.
+                   Vychozi: Magic Carpet 1 = 100000 (~Pentium MMX-166),
+                   Magic Carpet 2 = max.
                    486DX-33 12000 | 486DX2-66 25000 | Pentium 90 50000
                    Pentium MMX-166 100000 | Pentium II 300 200000
   -s, --shader S   docasne prebije glshader (jen dosbox-staging), napr.:
                    none, interpolation/sharp, crt-auto
       --stretch    roztahne obraz na celych 16:9 (vyplni 4K panel beze zbytku,
-                   ale deformuje - postavy budou o tretinu sirsi)
+                   ale deformuje - postavy budou o tretinu sirsi).
+                   Jen dosbox-staging, na dosbox-x se ignoruje.
       --tune       ladeni rychlosti: spusti v okne, kde je v titulku videt
                    aktualni pocet cyklu (ve fullscreenu titulek neni!)
   -h, --help       tato napoveda

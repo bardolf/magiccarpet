@@ -10,8 +10,10 @@ DOSBox zobrazuje aktuální počet cyklů **v titulku okna**:
 DOS4GW.EXE - 99533 cycles/ms
 ```
 
-Z dokumentace: *`cycles=<value>`: If set to 'on' (default), show CPU cycles
-setting.* — v titulku.
+Řídí to volba `titlebar` v sekci `[sdl]`, která má mimo jiné podhodnotu
+`cycles`: *„If set to 'on' (default), show CPU cycles setting."* Pozor na
+záměnu — není to klíč `cycles` ze sekce `[cpu]`, ten se ve stagingu jmenuje
+`cpu_cycles` / `cpu_cycles_protected`.
 
 Dvě věci to můžou schovat:
 
@@ -49,8 +51,8 @@ Hledat se tedy musí v obojím.
 
 ## Krok ladění
 
-Výchozí `cycleup = 10` znamená +10 % na stisk — z 25000 je to +2500, což je
-prakticky nepoznatelné. V configu je nastaveno symetrických 20 % oběma směry:
+Výchozí `cycleup = 10` znamená +10 % na stisk — z 100000 je to +10000, ale
+z nižších hodnot už je krok sotva znatelný. V configu je nastaveno symetrických 20 % oběma směry:
 
 ```ini
 cycleup   = 20

@@ -142,7 +142,7 @@ class Iso:
 
 
 def inspect(name):
-    image, inner, raw, pristine_md5, spots = TARGETS[name]
+    image, inner, raw, _md5, spots = TARGETS[name]   # _md5 uziva az cmd_status
     if not image.exists():
         return None, f"chybi image {image}"
     iso = Iso(image, raw)
@@ -167,26 +167,26 @@ def inspect(name):
     return (iso, lba, spots, state), None
 
 
-def pristine_check(name):
-    """Vrati True, pokud je soubor uplne nedotceny (sedi celofilovy MD5).
-    Slouzi jen jako informace pri prvnim spusteni."""
-    image, inner, raw, md5, _ = TARGETS[name]
-    iso = Iso(image, raw)
-    hit = iso.find(inner)
-    if not hit:
-        return None
-    return hashlib.md5(iso.extract(*hit)).hexdigest() == md5
-
-
 def cmd_status(names):
     for name in names:
         res, err = inspect(name)
         if err:
             print(f"  {name:9} CHYBA: {err}")
             continue
-        _, _, _, state = res
+        iso, lba, _, state = res
         summary = ", ".join(f"{b}={s}" for b, s in sorted(state.items()))
-        print(f"  {name:9} {summary}")
+
+        # Kdyz je vse v puvodnim stavu, jde overit i celofilovy MD5 - potvrdi,
+        # ze jde presne o tu verzi hry, pro kterou byly offsety zjisteny.
+        # Hashuje se jen samotne EXE (~1 MB), ne cely image.
+        note = ""
+        if all(v == "puvodni" for v in state.values()):
+            image, inner, raw, md5, _ = TARGETS[name]
+            hit = iso.find(inner)
+            got = hashlib.md5(iso.extract(*hit)).hexdigest()
+            note = "  [MD5 overeno]" if got == md5 else f"  [POZOR: jiny MD5 {got}]"
+
+        print(f"  {name:9} {summary}{note}")
 
 
 def apply(names, revert):

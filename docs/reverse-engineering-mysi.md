@@ -41,7 +41,7 @@ V obou hrách je v obsluze myši jediná instrukce `neg` nad osou Y.
 2b01a:  0f bf 15 92 ad 00 00   movsx edx, WORD PTR ds:0xad92   ; myš Y
 2b021:  c1 e2 07               shl   edx, 0x7                  ; ×128
 2b024:  81 ea 00 64 00 00      sub   edx, 0x6400               ; −25600 = 200×128
-2b02a:  b9 c8 00 00 00         mov   ecx, 0xc8                 ; 200 řádků = low-res
+2b02a:  b9 c8 00 00 00         mov   ecx, 0xc8                 ; 200 = low-res větev
 2b02f:  f7 da                  neg   edx                       ; <<< PATCH
 2b031:  89 c3                  mov   ebx, eax
 2b038:  f7 f9                  idiv  ecx
@@ -52,7 +52,7 @@ V obou hrách je v obsluze myši jediná instrukce `neg` nad osou Y.
 2b048:  8d 90 00 60 ff ff      lea   edx, [eax-0xa000]         ; −40960 = 320×128
 2b04e:  bb 40 01 00 00         mov   ebx, 0x140                ; 320 = šířka
 ...
-2b064:  b9 f0 00 00 00         mov   ecx, 0xf0                 ; 240 řádků = hi-res
+2b064:  b9 f0 00 00 00         mov   ecx, 0xf0                 ; 240 = hi-res větev
 2b07a:  f7 d9                  neg   ecx                       ; <<< PATCH
 
 2b07c:  83 fb 81               cmp   ebx, -127                 ; společný ořez
@@ -62,10 +62,15 @@ V obou hrách je v obsluze myši jediná instrukce `neg` nad osou Y.
 Proč je jisté, že jde o tenhle kód:
 
 - `ds:0xad90` a `ds:0xad92` jsou dvě **sousední** 16bitové proměnné — X a Y myši
-- X se dělí `0x140` = 320 (šířka obrazovky), Y se dělí `0xc8` = 200 nebo
-  `0xf0` = 240 (výška v obou režimech)
+- X se dělí `0x140` = 320, Y se dělí `0xc8` = 200 (jedna větev) nebo
+  `0xf0` = 240 (druhá větev)
 - **negaci dostane jen Y**, X ne
 - obě větve končí ořezem na ±127 — analogový rozsah letového ovládání
+
+Dělitele 200 a 240 **nejsou rozlišení**, ale poloviční výšky souřadnicového
+prostoru UI pro oba režimy (viz [obraz-a-displej.md](obraz-a-displej.md) —
+skutečná rozlišení jsou 320×200 a 640×480). Pro identifikaci větví to ale
+stačí: každý režim má svou a v obou je právě jedna negace osy Y.
 
 Menu kurzor pracuje s absolutní pozicí, ne s deltou oříznutou na ±127, takže
 tímhle kódem neprochází. Patch se proto projeví jen za letu.
@@ -75,14 +80,14 @@ tímhle kódem neprochází. Patch se proto projeví jen za letu.
 Stejná konstrukce, jen jinak poskládaná optimalizátorem:
 
 ```asm
-3b8a5:  sub   edx, 0x6400      ; −25600 → střed pro 200 řádků
+3b8a5:  sub   edx, 0x6400      ; −25600 = 200×128 → střed
 3b8ab:  mov   ebx, eax
 3b8ad:  neg   edx              ; <<< PATCH (low-res)
-3b8af:  mov   ecx, 0xc8        ; 200
+3b8af:  mov   ecx, 0xc8        ; 200 = low-res větev
 3b8bd:  jmp   0x3b8f5
 
-3b8df:  lea   edx, [eax-0x7800]; −30720 → střed pro 240 řádků
-3b8e5:  mov   ecx, 0xf0        ; 240
+3b8df:  lea   edx, [eax-0x7800]; −30720 = 240×128 → střed
+3b8e5:  mov   ecx, 0xf0        ; 240 = hi-res větev
 3b8f3:  neg   ecx              ; <<< PATCH (hi-res)
 
 3b8f5:  cmp   ebx, -127        ; společný ořez

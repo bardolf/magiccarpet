@@ -29,9 +29,9 @@ setup_magic_carpet_2_1.0_(28044).exe        300 567 928 B
 
 `setup.sh` tuhle past hlídá a odmítne cokoliv pod 5 MB.
 
-## Rozbalení bez Wine
+## Rozbalení instalátoru
 
-GOG instalátory jsou InnoSetup, takže je rozbalí `innoextract` nativně:
+GOG instalátory jsou InnoSetup, takže je rozbalí `innoextract`:
 
 ```bash
 innoextract -m -d magic-carpet-2 "setup_magic_carpet_2_1.0_(28044).exe"
@@ -39,16 +39,20 @@ innoextract -m -d magic-carpet-2 "setup_magic_carpet_2_1.0_(28044).exe"
 
 `-m` znamená „nespouštět skripty instalátoru".
 
-## Past č. 2: adresář `app/`
+## Past č. 2: chybějící soubory po rozbalení
 
-`innoextract` nechá komponentu `app/` jako samostatný adresář, ale instalátor
-ji má nasypat do kořene hry. Bez sloučení chybí:
+`innoextract` vytáhne soubory tak, jak leží v instalátoru — ale neudělá to,
+co by udělal instalátor při skutečné instalaci. Chybí pak:
 
-- Magic Carpet 2 — startovní `CONFIG.DAT` a soubory uložených pozic
-  (jsou schované v `__support/save/GAME/NETHERW/`)
-- prázdné, ale potřebné adresáře `SAVE`, `LANGUAGE`, `SHOTS`
+- **Magic Carpet 2** — startovní `CONFIG.DAT` a soubory uložených pozic.
+  `innoextract` je nechá v `__support/save/GAME/NETHERW/`, ale hra je čeká
+  v `GAME/NETHERW/`.
+- **prázdné adresáře** `SAVE`, `LANGUAGE`, `SHOTS` (u dvojky) a `CARPET.CD/SAVE`
+  (u jedničky). Prázdné adresáře v instalátoru nejsou, musí se vytvořit.
 
-`setup.sh` to řeší.
+`setup.sh` obojí řeší: zkopíruje `__support/save/` na správné místo a založí
+chybějící adresáře. Komponentu `app/` po vytažení ikony maže — kromě ikony
+a `webcache.zip` v ní nic užitečného není.
 
 ## Struktura po rozbalení
 
@@ -59,12 +63,13 @@ magic-carpet-plus/
 │   ├── SAVE/                   uložené pozice
 │   ├── SNDSETUP.INF            SB16 220 5 1 / SB16FM 388
 │   └── CP.DAT           2 B    volba Magic Carpet vs. Hidden Worlds
-└── DOSBOX/                     windowsový DOSBox, na Linuxu nepoužitelný
+└── DOSBOX/                     DOSBox přibalený od GOG, nepotřebný
 
 magic-carpet-2/
 ├── game.gog           401 MB   CD image (raw MODE1/2352)
 ├── game.ins            1198 B  CUE list: 1 datová + 27 audio stop
-└── GAME/NETHERW/               zapisovatelná strana (C:)
+└── GAME/                       zapisovatelná strana (mountuje se jako C:)
+    └── NETHERW/                 uložené pozice, CONFIG.DAT
 ```
 
 ## Hry jsou na CD image

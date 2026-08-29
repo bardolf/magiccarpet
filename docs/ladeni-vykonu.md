@@ -31,8 +31,8 @@ Z dokumentace dosbox-staging:
 486DX-33          12000
 ```
 
-GOG dodává konfiguraci s `cycles=auto`, což u obou her skončí na 60000
-(≈ Pentium 90). To byl u dvojky ve vyšším rozlišení přesně ten pocit
+GOG dodává konfiguraci s `cycles=auto`, což u obou her skončí na 60000 —
+zhruba mezi Pentiem 90 a MMX-166 podle tabulky výš. To byl u dvojky ve vyšším rozlišení přesně ten pocit
 „slabého počítače".
 
 ## Přejmenované klíče v dosbox-staging 0.82
@@ -51,7 +51,8 @@ binárku najde, a `--cycles` posílá na správný klíč.
 
 **Obě hry jsou DOS4GW**, tedy protected mode — platí pro ně
 `cpu_cycles_protected`, nikoliv `cpu_cycles`. Na DOS promptu proto uvidíš
-`3000 cycles/ms` (hodnota pro real mode) a svoje číslo až po spuštění hry.
+`3000 cycles/ms` — to je výchozí `cpu_cycles` emulátoru pro real mode, které
+tenhle repozitář nenastavuje. Svoje číslo uvidíš až po spuštění hry.
 
 ## core = dynamic
 
@@ -82,6 +83,7 @@ je v [klavesy-a-sway.md](klavesy-a-sway.md).
 U jedničky jsou framerate a rychlost hry svázané, takže vyšší rozlišení ten
 kompromis zhoršuje: co přidáš na plynulost, se projeví i na tempu.
 
-Trhání při plné rychlosti může mít jinou příčinu — klasické VGA režimy běží na
-**70 Hz** a na 60Hz panelu z toho vzniká nerovnoměrné frame pacing. Zvyšováním
-cyklů se to nespraví; pomůže `vsync = off`.
+Trhání při plné rychlosti může mít jinou příčinu — nerovnoměrné frame pacing
+mezi obnovovací frekvencí hry a monitoru. Zvyšováním cyklů se to nespraví, je
+to problém zobrazení. Řešení je v
+[obraz-a-displej.md](obraz-a-displej.md#frame-pacing-na-60hz-panelu).
