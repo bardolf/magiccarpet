@@ -1,0 +1,16 @@
+# Herni data NEPATRI do repozitare - jsou to autorsky chranene soubory,
+# ktere si kazdy musi koupit a stahnout sam z GOG.com.
+magic-carpet-plus/
+magic-carpet-2/
+*.gog
+*.ins
+*.exe
+*.EXE
+*.pdf
+setup_magic_carpet*
+GOG_Galaxy_*
+
+# Docasne soubory
+*.log
+*.pyc
+__pycache__/
