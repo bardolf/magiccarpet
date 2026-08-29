@@ -2,10 +2,12 @@
 
 ## Shrnutí
 
-| hra | výchozí hudba | dá se vylepšit? |
-|---|---|---|
-| Magic Carpet 1 / Hidden Worlds | SB16 **FM** (OPL syntéza) | **ano** — General MIDI je znatelný upgrade |
-| Magic Carpet 2 | **CD audio** (27 stop) | spíš ne, nahrané audio syntéza nepřekoná |
+| hra | výchozí hudba | MIDI driver | dá se vylepšit? |
+|---|---|---|---|
+| Magic Carpet 1 / Hidden Worlds | SB16 **FM** (OPL syntéza) | `SB16FM` | **ano** — General MIDI je znatelný upgrade |
+| Magic Carpet 2 | **CD audio** (27 stop) | `SBPRO2.MDI` (OPL) | ne — nahrané audio syntéza nepřekoná |
+
+Nastavení dvojky jsme záměrně nechali beze změny.
 
 ## Co hry podporují
 
@@ -44,6 +46,54 @@ krok zpět. V `README.TXT` je i přepínač:
 -music2      Use alternative (Magic Carpet 1) music.
 ```
 
+## Kde je uložený výběr ovladače
+
+**Magic Carpet 2** — Miles AIL si volbu pamatuje ve dvou souborech
+v `GAME/NETHERW/SOUND/`:
+
+`MDI.INI` (hudba):
+
+```ini
+DEVICE      Creative Labs Sound Blaster(TM) 16
+DRIVER      SBPRO2.MDI
+IO_ADDR     220h
+```
+
+`DIG.INI` (zvukové efekty):
+
+```ini
+DEVICE      Creative Labs Sound Blaster 16 or AWE32
+DRIVER      SB16.DIG
+IO_ADDR     220h
+```
+
+Ovladače jsou i na lokálním disku (`GAME/NETHERW/SOUND/`), nejen na CD — to
+dělá `NWSETUP.BAT` při instalaci.
+
+**Magic Carpet 1** — v `CARPET.CD/SNDSETUP.INF` (a binárně v `SNDSETUP.DAT`):
+
+```
+SOUNDFX = SB16 220 5 1
+MUSIC = SB16FM 388 0 0
+```
+
+## Proč FluidSynth neovlivní dvojku
+
+Sekce `[midi]` a `[fluidsynth]` v configu jsou **společné pro obě hry**, ale
+na Magic Carpet 2 prakticky nemají vliv:
+
+`SBPRO2.MDI` posílá hudbu na **OPL čip Sound Blasteru**, ne na MPU-401. Do
+FluidSynthu se tím pádem nic nedostane — ten dostává jen to, co jde přes
+emulované MPU-401 rozhraní.
+
+Kdybys chtěl dvojku na FluidSynth přepnout, musel bys v `./play.sh setup2`
+zvolit `MPU401.MDI`. **Ale nemá to smysl** — hlavní hudba dvojky jsou CD audio
+stopy, které jedou úplně mimo MIDI. Nastavení `SBPRO2.MDI` + `SB16.DIG` je
+funkční a CD hudba hraje nezávisle na něm.
+
+Reálný přínos má General MIDI **jen u jedničky**, která CD audio nemá a jede
+na `SB16FM`, tedy taky na FM syntéze.
+
 ## General MIDI přes FluidSynth
 
 **dosbox-staging má FluidSynth zabudovaný** — žádný MIDI démon na hostiteli
@@ -69,14 +119,17 @@ MIDI: Opened device: fluidsynth
 
 ### Přepnout hru na General MIDI
 
-Config sám nestačí — hra si musí General MIDI vybrat ve svém setupu:
+Config sám nestačí — hra si musí General MIDI vybrat ve svém setupu.
+**Dělej to jen u jedničky**, u dvojky to nemá smysl (viz výše):
 
 ```bash
-./play.sh setup      # Magic Carpet 1  (SELECT.EXE)
-./play.sh setup2     # Magic Carpet 2  (SETSOUND.EXE)
+./play.sh setup      # Magic Carpet 1 (SELECT.EXE)
 ```
 
-U jedničky přepni music z *Soundblaster 16 fm* na *General midi*.
+Tam přepni music z *Soundblaster 16 fm* na *General midi*.
+
+Setup dvojky je `./play.sh setup2` (SETSOUND.EXE), ale ten je spíš na řešení
+problémů se zvukem než na vylepšování hudby.
 
 ### Lepší soundfont
 
