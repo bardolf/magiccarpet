@@ -61,6 +61,11 @@ demanding DOS programs (e.g., 3D SVGA games)"* — což je přesně Magic Carpet
 `core = auto` by ho pro protected mode zvolilo taky, ale je nastavené
 explicitně.
 
+Za výkon se ale platí přesností: pád dvojky, který jsme vytáhli z coredumpu,
+vede právě přes dynamický rekompilátor. Jádro `normal` je 3–5× dražší, ale
+chráněný režim emuluje věrněji — viz [pady-a-stabilita.md](pady-a-stabilita.md)
+a přepínač `./play.sh --core normal`.
+
 ## Ladění za běhu
 
 ```bash

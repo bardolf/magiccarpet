@@ -14,3 +14,6 @@ GOG_Galaxy_*
 *.log
 *.pyc
 __pycache__/
+
+# Logy z ./play.sh --log
+logs/

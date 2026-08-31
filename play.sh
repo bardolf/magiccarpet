@@ -25,11 +25,26 @@ MCP_CYCLES=100000
 # co dostane.
 MC2_CYCLES=max
 
+# Rychlost pro --safe. Smyslem je jen nahradit 'max' pevnym cislem, aby se
+# pocet cyklu za behu nemenil - ne hru zpomalit. Dvojka rychlost hry na CPU
+# nevaze, takze cislo urcuje jen plynulost: lad Ctrl+F12, dokud nejsi na tom,
+# co jsi mel s 'max', a zapis si ho sem.
+MC2_SAFE_CYCLES=200000
+
+LOGDIR="$GAMES/logs"
+
 FULLSCREEN=1
 CYCLES=""
 SHADER=""
 STRETCH=0
 TUNE=0
+SAFE=0
+LOG=0
+CORE=""
+CPUTYPE=""
+MEM=""
+EMS=""
+EXTRA=()
 
 die() { printf '\033[31mChyba:\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -79,9 +94,21 @@ run() {
         # ale obraz je deformovany (4:3 roztazene o tretinu do sirky)
         args+=(-set "render aspect=stretch" -set "render viewport=100%")
     fi
+
+    # Paky proti padum, viz docs/pady-a-stabilita.md. Nazvy klicu jsou ze
+    # staging; dosbox-x ma 'core' a 'memsize' stejne, 'ems' taky.
+    [[ -n $CORE ]] && args+=(-set "cpu core=$CORE")
+    [[ -n $CPUTYPE ]] && args+=(-set "cpu cputype=$CPUTYPE")
+    [[ -n $MEM  ]] && args+=(-set "dosbox memsize=$MEM")
+    [[ -n $EMS  ]] && args+=(-set "dos ems=$EMS")
+    (( ${#EXTRA[@]} )) && args+=("${EXTRA[@]}")
+
     local cmd
     for cmd in "$@"; do args+=(-c "$cmd"); done
-    args+=(-c exit)
+    # Zaverecne 'exit' ukonci DOSBox, jakmile hra skonci. S --log se zamerne
+    # nepridava: kdyz hra padne, zustane na DOS promptu videt hlaska DOS4GW,
+    # ktera by jinak probliknula spolu s oknem.
+    (( LOG )) || args+=(-c exit)
 
     if (( TUNE )); then
         cat <<'TIP'
@@ -100,7 +127,16 @@ TIP
     fi
     printf '\033[36m>>\033[0m %s  (%s)\n' "$dir" "$BIN"
     cd "$dir"
-    exec "$BIN" "${args[@]}"
+    (( LOG )) || exec "$BIN" "${args[@]}"
+
+    # S --log nejde exec - vypis musi projit pres tee do souboru.
+    mkdir -p "$LOGDIR"
+    local log="$LOGDIR/$(date +%Y%m%d-%H%M%S)-${TARGET:-dosbox}.log"
+    local rc=0
+    "$BIN" "${args[@]}" 2>&1 | tee "$log" || rc=$?
+    printf '\033[36m<<\033[0m konec (kod %d), log: %s\n' "$rc" "$log"
+    grep -aE 'ABORT:|ERROR:' "$log" | tail -5 || true
+    exit "$rc"
 }
 
 # Magic Carpet Plus: C: = koren hry (zapisovatelny: SAVE, SNDSETUP.DAT),
@@ -137,6 +173,10 @@ Cile:
   lang        Smaze volbu jazyka v MC Plus (pri dalsim spusteni se zepta znovu)
   cycles      Vypise aktualni pocet cyklu bezici hry (cte titulek okna ze sway,
               protoze 'default_border pixel' ho na obrazovce nevykresluje)
+  crash       Vypise hlasku z posledniho padu DOSBoxu ze systemoveho coredumpu
+  loginfo     Shrne nejnovejsi log z --log: rezimy obrazu, cteni mimo pamet,
+              chybove hlasky
+  logs        Tabulka vsech behu z --log: cim se lisily a jak dlouho vydrzely
 
 Volby:
   -w, --windowed   spustit v okne misto fullscreenu
@@ -152,6 +192,21 @@ Volby:
                    Jen dosbox-staging, na dosbox-x se ignoruje.
       --tune       ladeni rychlosti: spusti v okne, kde je v titulku videt
                    aktualni pocet cyklu (ve fullscreenu titulek neni!)
+
+  Proti padum (podrobne v docs/pady-a-stabilita.md):
+      --safe       rezim pro stabilitu: cputype=pentium, bez EMS a u dvojky
+                   pevne cykly misto 'max'
+      --core C     jadro CPU: normal | dynamic | simple | auto. 'normal' je
+                   diagnosticky (s nizkymi cykly), na hrani je moc pomale.
+      --cputype C  typ CPU: auto | 386 | 486 | pentium | pentium_mmx.
+                   Na foru GOG se u dvojky doporucuje 'pentium_slow', coz je
+                   stary nazev - staging ho mapuje na 'pentium'.
+      --mem N      memsize v MB (vychozi 16, staging nedoporucuje nad 31)
+      --noems      vypne EMS - DOS4GW ho nepotrebuje
+      --log        vypis DOSBoxu do logs/ a po skonceni hry necha okno na DOS
+                   promptu, aby byla videt pripadna hlaska DOS4GW
+      --set "S K=V"  jakekoli dalsi nastaveni DOSBoxu, lze opakovat, napr.
+                   --set "dosbox machine=vesa_nolfb"
   -h, --help       tato napoveda
 
 Promenne:
@@ -193,12 +248,37 @@ while (( $# )); do
         -s|--shader)   SHADER=${2:?chybi hodnota pro --shader}; shift ;;
         --stretch)     STRETCH=1 ;;
         --tune)        FULLSCREEN=0; TUNE=1 ;;
+        --safe)        SAFE=1 ;;
+        --log)         LOG=1 ;;
+        --core)        CORE=${2:?chybi hodnota pro --core}; shift ;;
+        --cputype)     CPUTYPE=${2:?chybi hodnota pro --cputype}; shift ;;
+        --mem)         MEM=${2:?chybi hodnota pro --mem}; shift ;;
+        --noems)       EMS=false ;;
+        --set)         EXTRA+=(-set "${2:?chybi hodnota pro --set}"); shift ;;
         -h|--help)     usage; exit 0 ;;
         -*)            die "neznama volba: $1 (zkus --help)" ;;
         *)             TARGET=$1 ;;
     esac
     shift
 done
+
+# --safe je jen predvolba jednotlivych pak vys - kazda z nich se da prebit tim,
+# ze ji uvedes zvlast (napr. --safe --mem 16).
+#
+# Jadro 'normal' tu ZAMERNE neni: DOSBox sam v logu hlasi, ze nad 20000 cyklu
+# patri 'dynamic', a dvojka v 640x480 potrebuje nasobne vic - vysledkem je
+# trhany zvuk. Zustava jako diagnosticky prepinac '--core normal' (s nizkymi
+# cykly), ne jako nastaveni na hrani.
+#
+# memsize tu taky NENI. Puvodne to bylo 31 MB, ale ten beh vydrzel nejmin ze
+# vsech (5:29) a na foru GOG se naopak pise, ze pomaha pameti hre UBRAT. Je to
+# tedy samostatny pokus '--mem 8', ne soucast profilu.
+# Viz docs/pady-a-stabilita.md
+if (( SAFE )); then
+    EMS=${EMS:-false}
+    CPUTYPE=${CPUTYPE:-pentium}
+    MC2_CYCLES=$MC2_SAFE_CYCLES
+fi
 
 pick_emulator
 [[ -n $TARGET ]] || menu
@@ -237,6 +317,159 @@ for title in hits:
     else:
         print(\"  \" + title)
 " ;;
+    crash|loginfo)
+            # Fatalni hlasky obou emulatoru. staging: 'ABORT:', dosbox-x:
+            # 'E_Exit:' plus kaskada CPU_Exception -> double fault -> triple fault.
+            FATAL="ABORT:|E_Exit|Triple fault|Double fault|CPU_Exception"
+            FATAL="$FATAL|DYNX86|DYNREC|Can't run code|Illegal descriptor|Gate Selector"
+            ;;&
+    crash)  # Kdyz DOSBox pri padu hry sam skonci pres abort(), systemd ulozi
+            # coredump. Metadata a zasobnik vytahneme z nej, plny text hlasky
+            # radeji z logu (--log) - v coredumpu ji loguru necha zkracenou
+            # ("ABORT: Illegal") a domyslet ji z retezcu v binarce vede na
+            # falesne shody.
+            #
+            # POZOR: nikde tady nesmi byt 'grep -m1' za rourou - grep po nalezeni
+            # skonci, roura dostane SIGPIPE a 'set -o pipefail' pak cely prikaz
+            # vyhodnoti jako chybu. Prvni radek se proto bere 'sed -n 1p'.
+            command -v coredumpctl >/dev/null || die "coredumpctl nenalezen"
+            # coredumpctl hleda podle jmena procesu, ktere se u dosbox-x lisi
+            COMM=$(basename "${DOSBOX_BIN:-dosbox}")
+            # coredumpctl vypisuje zasobniky VSECH vlaken (u DOSBoxu jich jsou
+            # desitky - mixer, pipewire, mesa, gomp). Zajima nas jen to prvni,
+            # tedy to, ktere spadlo.
+            INFO=$(coredumpctl info -1 "$COMM" 2>/dev/null | awk '
+                /Timestamp:|Signal:|Command Line:/ { print; next }
+                /Stack trace of thread/            { t++; next }
+                t == 1 && /^ +#[0-9]/              { print }') || INFO=""
+            if [[ -n $INFO ]]; then
+                printf '%s\n' "$INFO"
+            else
+                echo "  (zadny coredump procesu '$COMM')"
+            fi
+            echo
+            LAST=$(ls -1t "$LOGDIR"/*.log 2>/dev/null | sed -n 1p) || LAST=""
+            MSG=""
+            if [[ -n $LAST ]]; then
+                MSG=$(grep -aE "$FATAL" "$LAST" | tail -3 |
+                      sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:.]+ \| //; s/^LOG: //') || MSG=""
+            fi
+            if [[ -n $MSG ]]; then
+                echo "  Hlaska z logu $(basename "$LAST"):"
+                printf '%s\n' "$MSG" | sed 's/^/   /'
+            else
+                echo "  Hlaska pred padem (ctu coredump, chvilku to trva):"
+                MSG=$(coredumpctl dump "$COMM" 2>/dev/null |
+                      strings -n 6 | grep -aoE 'ABORT: .*' | tail -1) || MSG=""
+                if [[ -n $MSG ]]; then
+                    echo "   $MSG"
+                    echo "   (loguru ji v coredumpu zkracuje - cely text da"
+                    echo "    './play.sh loginfo', kdyz hru spustis s --log)"
+                else
+                    echo "   (nic k nalezeni - spust hru s --log)"
+                fi
+            fi
+            echo
+            echo "  Co s tim dal: docs/pady-a-stabilita.md" ;;
+    loginfo) # Shrnuti logu z --log.
+            #
+            # "Illegal read"  = cteni z adresy, ktera v emulovane pameti neni.
+            #                   U dvojky je to trvaly sum od prvni minuty, ve
+            #                   vsech konfiguracich - samo o sobe to nic neznaci.
+            # "Illegal write" = zapis mimo pamet. Ten se u dvojky objevil jen
+            #                   v okamziku padu, takze tohle je ta zajimava vec.
+            #
+            # DOSBox vypise nejvys 1000 hlasek kazdeho druhu a pak uz jen mlci.
+            LAST=$(ls -1t "$LOGDIR"/*.log 2>/dev/null | sed -n 1p)
+            [[ -n ${LAST:-} ]] || die "v $LOGDIR nejsou zadne logy - spust hru s --log"
+            printf '\033[36m>>\033[0m %s\n\n' "$LAST"
+            # staging pise cely prikaz do logu, dosbox-x jen nazev configu
+            sed -n 's/.*| arguments: /  spusteno: /p;s/^LOG: CONFIG: Loaded config file: /  config:   /p' \
+                "$LAST" | sed -n 1p
+
+            # Jak dlouho beh vydrzel - jmeno souboru je zacatek, mtime konec.
+            # To je hlavni cislo, ktere se mezi pokusy porovnava.
+            STAMP=$(basename "$LAST" | sed -E \
+                's/^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}).*/\1-\2-\3 \4:\5:\6/')
+            T0=$(date -d "$STAMP" +%s 2>/dev/null) || T0=""
+            T1=$(stat -c %Y "$LAST")
+            [[ -n $T0 ]] && printf '  vydrzelo: %d min %d s\n' \
+                $(( (T1-T0)/60 )) $(( (T1-T0)%60 ))
+            echo
+            echo "  Rezimy obrazu:"
+            grep -oE 'DISPLAY: (VGA|VESA) [0-9]+x[0-9]+' "$LAST" |
+                sort | uniq -c | sed 's/^/   /' || echo "   (dosbox-x je neloguje)"
+
+            for KIND in read write; do
+                N=$(grep -c "Illegal $KIND" "$LAST" || true)
+                echo
+                if (( N == 0 )); then
+                    echo "  Illegal $KIND: zadny"
+                    continue
+                fi
+                echo "  Illegal $KIND: $N$( (( N >= 1000 )) && printf ' (strop vypisu - realne vic)')"
+                # dosbox-staging pise ke kazde radce cas, dosbox-x ne
+                TA=$(grep "Illegal $KIND" "$LAST" | sed -n 1p |
+                     grep -oE '[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -n 1p) || TA=""
+                TB=$(grep "Illegal $KIND" "$LAST" | tail -1 |
+                     grep -oE '[0-9]{2}:[0-9]{2}:[0-9]{2}' | sed -n 1p) || TB=""
+                [[ -n $TA ]] && echo "    kdy:    $TA - $TB"
+                echo -n "    adresy: "
+                grep -oE "Illegal $KIND (from|to) [0-9a-f]+" "$LAST" | awk '{print $4}' |
+                    sort -u | tr '\n' ' ' | fold -s -w 60 | sed '2,$s/^/            /'
+                echo
+                echo "    mista v kodu hry (CS:IP):"
+                grep "Illegal $KIND" "$LAST" | grep -oE 'CS:IP +[0-9a-f]+: +[0-9a-f]+' |
+                    awk '{print $2 $3}' | sort | uniq -c | sort -rn | sed 's/^/     /'
+            done
+
+            echo
+            # dosbox-x hlasi i spoustu necekanych volani BIOSu - sam o sobe
+            # to nic neznamena, hra si oklepava hardware.
+            if grep -qa "ERROR" "$LAST"; then
+                echo
+                echo "  Hlaseni emulatoru (dosbox-x):"
+                grep -oaE "ERROR [A-Za-z0-9]+:.*" "$LAST" | sed -E 's/[0-9a-fx]{4,}/../g' |
+                    sort | uniq -c | sort -rn | head -8 | sed 's/^/   /'
+            fi
+
+            echo
+            if grep -qaE "$FATAL" "$LAST"; then
+                echo "  Konec behu:"
+                grep -aE "$FATAL" "$LAST" |
+                    sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:.]+ \| //; s/^LOG: //' |
+                    uniq | tail -5 | sed 's/^/   /'
+            else
+                echo "  Beh skoncil bez fatalni hlasky (ukoncen rucne, nebo hra vypadla do DOSu)."
+            fi ;;
+    logs)   # Porovnani vsech behu. Jedine cislo, ktere u padu neco znamena,
+            # je 'vydrzelo' - jednotlive vzorky se hodne rozptyluji, takze
+            # jeden dlouhy beh jeste nic nedokazuje.
+            shopt -s nullglob
+            FILES=("$LOGDIR"/*.log)
+            shopt -u nullglob
+            (( ${#FILES[@]} )) || die "v $LOGDIR nejsou zadne logy - spust hru s --log"
+            printf '  %-14s %8s  %-34s %s\n' zacatek vydrzelo nastaveni konec
+            printf '  %-14s %8s  %-34s %s\n' -------- -------- --------- -----
+            for F in "${FILES[@]}"; do
+                B=$(basename "$F")
+                STAMP=$(sed -E 's/^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}).*/\1-\2-\3 \4:\5:\6/' <<<"$B")
+                T0=$(date -d "$STAMP" +%s 2>/dev/null) || T0=""
+                DUR="?"
+                [[ -n $T0 ]] && DUR=$(printf '%d:%02d' $(( ($(stat -c %Y "$F")-T0)/60 )) \
+                                                       $(( ($(stat -c %Y "$F")-T0)%60 )))
+                # z prikazove radky vytahnout jen to, cim se behy lisi
+                CFG=$(grep -oaE "(cpu_cycles_protected|core|cputype|memsize|ems)=[a-z0-9_]+" "$F" |
+                      sed -e 's/cpu_cycles_protected=/cyk /' -e 's/cputype=/cpu /' \
+                          -e 's/memsize=/mem /' -e 's/core=/jadro /' -e 's/ems=/ems /' |
+                      sort -u | tr '\n' ' ') || CFG=""
+                # dosbox-x prikazovou radku do logu nepise, pozna se podle configu
+                [[ -z $CFG ]] && grep -qa 'dosbox-x.conf' "$F" && CFG="(dosbox-x)"
+                END=$(grep -aoE "ABORT: .*|E_Exit: .*|Triple Fault" "$F" |
+                      tail -1 | cut -c1-46) || END=""
+                [[ -z $END ]] && END="(bez padu)"
+                printf '  %-14s %8s  %-34s %s\n' "${B:9:2}:${B:11:2}:${B:13:2}" "$DUR" "${CFG:0:34}" "$END"
+            done ;;
     lang)   rm -fv "$MCP/CARPET.CD/LANGUAGE.INF"
             echo "Volba jazyka smazana - hra se zepta pri dalsim spusteni." ;;
     *)      die "neznamy cil: $TARGET (zkus --help)" ;;

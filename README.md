@@ -51,6 +51,10 @@ u jedničky do `MCP_CYCLES` v `play.sh`, u dvojky do `MC2_CYCLES`.
 Aktuální hodnotu vypíše `./play.sh cycles` (v titulku okna ji nemusí být vidět,
 viz [klavesy-a-sway.md](docs/klavesy-a-sway.md)).
 
+Dvojka ve vyšším rozlišení padá po 5-20 minutách. Co se při tom děje a co
+zkusit: [pady-a-stabilita.md](docs/pady-a-stabilita.md), zkratkou
+`./play.sh --safe mc2`.
+
 **A hrajeme.**
 
 ---
@@ -77,6 +81,9 @@ viz [klavesy-a-sway.md](docs/klavesy-a-sway.md)).
 ./play.sh setup           nastavení zvuku pro jedničku
 ./play.sh setup2          nastavení zvuku pro dvojku
 ./play.sh cycles          vypíše aktuální rychlost CPU běžící hry
+./play.sh crash           hláška z posledního pádu DOSBoxu (ze coredumpu)
+./play.sh loginfo         shrnutí posledního logu z --log
+./play.sh logs            tabulka všech běhů: čím se lišily a jak dlouho vydržely
 ./play.sh lang            smaže volbu jazyka v jedničce
 
   -w, --windowed          spustit v okně
@@ -84,6 +91,15 @@ viz [klavesy-a-sway.md](docs/klavesy-a-sway.md)).
   -s, --shader S          jiný glshader (none, interpolation/sharp, crt-auto)
       --stretch           roztáhnout na celých 16:9 (deformuje)
   -h, --help              nápověda
+
+  proti pádům dvojky:
+      --safe              cputype=pentium, bez EMS, pevné cykly místo max
+      --cputype C         typ CPU (auto, 386, 486, pentium, pentium_mmx)
+      --core C            jádro CPU (normal, dynamic, simple, auto)
+      --mem N             memsize v MB
+      --noems             vypnout EMS
+      --log               výpis do logs/, po pádu nechá okno na DOS promptu
+      --set "S K=V"       jakékoli další nastavení DOSBoxu
 
 Přepínače -s a --stretch fungují jen s dosbox-staging.
 Proměnná DOSBOX_BIN vynutí konkrétní emulátor:  DOSBOX_BIN=dosbox-x ./play.sh mc2
@@ -96,6 +112,7 @@ Proměnná DOSBOX_BIN vynutí konkrétní emulátor:  DOSBOX_BIN=dosbox-x ./play
 - [Ladění výkonu](docs/ladeni-vykonu.md) — proč každá hra potřebuje jinou rychlost CPU
 - [Obraz a displej](docs/obraz-a-displej.md) — rozlišení, černé pruhy, integer scaling, 4K
 - [Zvuk a hudba](docs/zvuk-a-hudba.md) — General MIDI, soundfonty, CD audio, MT-32, GUS
+- [Pády a stabilita](docs/pady-a-stabilita.md) — proč dvojka padá a čím se to dá zkusit posunout
 - [Klávesy a sway](docs/klavesy-a-sway.md) — proč není vidět titulek okna a jak ho přečíst
 - [Reverse engineering myši](docs/reverse-engineering-mysi.md) — analýza a offsety patche
 
