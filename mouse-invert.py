@@ -27,7 +27,10 @@ import struct
 import sys
 from pathlib import Path
 
-GAMES = Path(__file__).resolve().parent
+# POZOR: '.parent.resolve()', ne '.resolve().parent'. Tenhle skript bezi
+# z ~/games, kde je na nej jen symlink do klonu repozitare - a .resolve()
+# na souboru by symlink nasledoval a hledal hry v repu, kde nejsou.
+GAMES = Path(__file__).parent.resolve()
 
 NOP = b"\x90\x90"
 

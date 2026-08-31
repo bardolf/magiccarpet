@@ -72,6 +72,38 @@ magic-carpet-2/
     └── NETHERW/                 uložené pozice, CONFIG.DAT
 ```
 
+## Herní data mimo repozitář: ~/games se symlinky
+
+`setup.sh` rozbaluje hry do adresáře, kde sám leží, tedy do klonu repozitáře
+(`.gitignore` je pak drží mimo git). Herní data ale s repozitářem nemají co
+dělat a jsou to stovky MB, takže je praktičtější je mít jinde a skripty do nich
+prolinkovat:
+
+```
+~/games/
+├── magic-carpet-plus/               herní data (400+ MB, mimo git)
+├── magic-carpet-2/
+├── play.sh             -> ../projects/magiccarpet/play.sh
+├── mouse-invert.py     -> ../projects/magiccarpet/mouse-invert.py
+├── dosbox-staging.conf -> ../projects/magiccarpet/dosbox-staging.conf
+├── dosbox-x.conf       -> ../projects/magiccarpet/dosbox-x.conf
+└── docs               -> ../projects/magiccarpet/docs
+```
+
+Hraje se pak z `~/games`, edituje kdekoli — je to jeden a tentýž soubor, takže
+se kopie nemají jak rozejít.
+
+Oba skripty si adresář s hrami hledají podle toho, **odkud byly spuštěné**, ne
+kde fyzicky leží:
+
+- `play.sh` bere `dirname "$BASH_SOURCE"`, což symlink nerozbaluje.
+- `mouse-invert.py` má `Path(__file__).parent.resolve()`. Pořadí je podstatné —
+  `.resolve().parent` by symlink následovalo a hry hledalo v repozitáři, kde
+  nejsou.
+
+Pozor jen na `setup.sh`: ten pořád rozbaluje k sobě, tedy do repozitáře. Při
+opakovaném rozbalování je potřeba data přenést do `~/games` ručně.
+
 ## Hry jsou na CD image
 
 Spustitelné soubory **nejsou na disku** — jsou uvnitř `game.gog`. Proto se
